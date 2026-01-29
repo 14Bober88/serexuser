@@ -6,9 +6,9 @@ import os
 from datetime import datetime
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key_change_in_production_12345'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your_secret_key_change_in_production_12345')
 app.config['DATABASE'] = 'database/users.db'
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 
 # ========== БАЗА ДАНИХ ==========
@@ -25,28 +25,13 @@ def init_db():
         db = get_db()
         cursor = db.cursor()
         cursor.execute('''
-                       CREATE TABLE IF NOT EXISTS users
-                       (
-                           id
-                           INTEGER
-                           PRIMARY
-                           KEY
-                           AUTOINCREMENT,
-                           username
-                           TEXT
-                           UNIQUE
-                           NOT
-                           NULL,
-                           password_hash
-                           TEXT
-                           NOT
-                           NULL,
-                           created_at
-                           TIMESTAMP
-                           DEFAULT
-                           CURRENT_TIMESTAMP
-                       )
-                       ''')
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
         db.commit()
 
 
@@ -83,7 +68,7 @@ def register():
 def chat():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    return render_template('chat.html')
+    return render_template('chat.html', username=session.get('username', 'Гість'))
 
 
 # ========== API ЕНДПОІНТИ ==========
@@ -117,7 +102,20 @@ def api_register():
         )
         db.commit()
 
-        return jsonify({'success': True, 'message': 'Реєстрація успішна'})
+        # Автоматичний вхід після реєстрації
+        cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
+        user = cursor.fetchone()
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+
+        return jsonify({
+            'success': True, 
+            'message': 'Реєстрація успішна',
+            'user': {
+                'id': user['id'],
+                'username': user['username']
+            }
+        })
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -191,9 +189,10 @@ def handle_connect():
 @socketio.on('disconnect')
 def handle_disconnect():
     if request.sid in online_users:
+        username = online_users[request.sid]['username']
         del online_users[request.sid]
         broadcast_online_users()
-        print('Користувач відключився')
+        print(f'Користувач {username} відключився')
 
 
 def broadcast_online_users():
@@ -250,12 +249,13 @@ def handle_search_users(data):
 if __name__ == '__main__':
     os.makedirs('database', exist_ok=True)
     init_db()
-import os    
-    port = int(os.environ.get('PORT', 5000))  # ← ДОДАЙ ЦЕ!
-   port = int(os.environ.get('PORT', 5000)) 
-    socketio.run(app,
-                 debug=False,                 # ← debug=False для продакшена
-                 port=5000
-                 host='0.0.0.0',
-                 port=port)                   # ← port=port (не 5000!)00)
-
+    
+    port = int(os.environ.get('PORT', 8000))
+    
+    socketio.run(
+        app,
+        host='0.0.0.0',
+        port=port,
+        debug=False,
+        allow_unsafe_werkzeug=True
+    )
