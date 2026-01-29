@@ -250,11 +250,12 @@ def handle_search_users(data):
 if __name__ == '__main__':
     os.makedirs('database', exist_ok=True)
     init_db()
-    
+import os    
     port = int(os.environ.get('PORT', 5000))  # ← ДОДАЙ ЦЕ!
-    
+   port = int(os.environ.get('PORT', 5000)) 
     socketio.run(app,
                  debug=False,                 # ← debug=False для продакшена
-                 allow_unsafe_werkzeug=True,
+                 port=5000
                  host='0.0.0.0',
                  port=port)                   # ← port=port (не 5000!)00)
+
