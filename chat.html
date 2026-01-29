@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат</title>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .chat-container {
+            display: flex;
+            height: 100vh;
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .sidebar {
+            width: 300px;
+            background: #2c3e50;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #34495e;
+        }
+
+        .user-header {
+            padding: 20px;
+            background: #1a252f;
+            border-bottom: 1px solid #34495e;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .avatar {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 20px;
+            color: white;
+        }
+
+        .user-details h3 {
+            margin-bottom: 5px;
+        }
+
+        .user-details small {
+            color: #95a5a6;
+        }
+
+        .logout-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #c0392b;
+        }
+
+        .search-box {
+            padding: 20px;
+            border-bottom: 1px solid #34495e;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            background: #34495e;
+            color: white;
+            font-size: 14px;
+        }
+
+        .search-box input::placeholder {
+            color: #95a5a6;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            background: #3d566e;
+        }
+
+        .online-users {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .online-users h3 {
+            margin-bottom: 15px;
+            color: #ecf0f1;
+            font-size: 16px;
+        }
+
+        .user-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #34495e;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 4px solid transparent;
+        }
+
+        .user-item:hover {
+            background: #3d566e;
+            transform: translateX(3px);
+        }
+
+        .user-item.selected {
+            background: #3498db;
+            border-left-color: #2980b9;
+        }
+
+        .user-item .username {
+            font-weight: 600;
+        }
+
+        .user-item .status {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 4px;
+        }
+
+        .user-item.selected .status {
+            color: #ecf0f1;
+        }
+
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 20px;
+            background: white;
+            border-bottom: 1px solid #ecf0f1;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .chat-header h2 {
+            color: #2c3e50;
+            font-size: 20px;
+        }
+
+        .chat-header small {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            max-width: 70%;
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 18px;
+            position: relative;
+            clear: both;
+        }
+
+        .message.outgoing {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            float: right;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.incoming {
+            background: white;
+            color: #2c3e50;
+            float: left;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .message .sender {
+            font-weight: 600;
+            font-size: 12px;
+            margin-bottom: 4px;
+            opacity: 0.8;
+        }
+
+        .message .text {
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        .message .time {
+            font-size: 11px;
+            text-align: right;
+            margin-top: 5px;
+            opacity: 0.7;
+        }
+
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #ecf0f1;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+        }
+
+        .recipient-info {
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            display: none;
+        }
+
+        .recipient-info span {
+            color: #1976d2;
+            font-weight: 600;
+        }
+
+        .close-recipient {
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+
+        .message-input-container {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            resize: none;
+            min-height: 60px;
+            max-height: 150px;
+            line-height: 1.4;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .send-btn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            height: 60px;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .no-messages {
+            text-align: center;
+            color: #7f8c8d;
+            padding: 40px;
+            font-size: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: 300px;
+            }
+
+            .chat-main {
+                height: calc(100vh - 300px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <!-- Бічна панель -->
+        <div class="sidebar">
+            <div class="user-header">
+                <div class="user-info">
+                    <div class="avatar" id="user-avatar">U</div>
+                    <div class="user-details">
+                        <h3 id="current-username">Користувач</h3>
+                        <small id="user-status">● онлайн</small>
+                    </div>
+                </div>
+                <button class="logout-btn" onclick="logout()">Вийти</button>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="user-search" placeholder="Пошук користувачів...">
+            </div>
+
+            <div class="online-users">
+                <h3>Онлайн користувачі (<span id="online-count">0</span>)</h3>
+                <div id="online-users-list">
+                    <div class="no-messages">Завантаження...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Основна область чату -->
+        <div class="chat-main">
+            <div class="chat-header">
+                <h2>Чат</h2>
+                <small id="chat-info">Виберіть користувача для спілкування</small>
+            </div>
+
+            <div class="messages-container" id="messages-area">
+                <div class="no-messages" id="no-messages">Виберіть користувача зі списку, щоб почати спілкування</div>
+            </div>
+
+            <div class="input-area">
+                <div class="recipient-info" id="recipient-info">
+                    <div>
+                        Приватне повідомлення для: <span id="selected-user"></span>
+                    </div>
+                    <button class="close-recipient" onclick="clearRecipient()">×</button>
+                </div>
+
+                <div class="message-input-container">
+                    <textarea
+                        id="message-input"
+                        class="message-input"
+                        placeholder="Введіть повідомлення..."
+                        onkeypress="handleKeyPress(event)"
+                        disabled
+                    ></textarea>
+                    <button class="send-btn" onclick="sendMessage()" disabled id="send-btn">Надіслати</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Глобальні змінні
+        let socket = null;
+        let currentUser = null;
+        let selectedRecipient = null;
+
+        // Ініціалізація при завантаженні сторінки
+        document.addEventListener('DOMContentLoaded', function() {
+            initChat();
+        });
+
+        // Ініціалізація чату
+        async function initChat() {
+            // Перевірка авторизації
+            try {
+                const response = await fetch('/api/check_auth');
+                const data = await response.json();
+
+                if (!data.authenticated) {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                currentUser = data.user;
+                updateUserInfo();
+                connectWebSocket();
+
+            } catch (error) {
+                console.error('Auth check error:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        // Оновлення інформації про користувача
+        function updateUserInfo() {
+            document.getElementById('current-username').textContent = currentUser.username;
+            document.getElementById('user-avatar').textContent = currentUser.username.charAt(0).toUpperCase();
+        }
+
+        // Підключення до WebSocket
+        function connectWebSocket() {
+            socket = io();
+
+            // Обробка подій WebSocket
+            socket.on('connect', function() {
+                console.log('Підключено до WebSocket сервера');
+                document.getElementById('user-status').textContent = '● онлайн';
+            });
+
+            socket.on('disconnect', function() {
+                document.getElementById('user-status').textContent = '● офлайн';
+            });
+
+            socket.on('auth_success', function(userData) {
+                console.log('Авторизація успішна:', userData);
+            });
+
+            socket.on('online_users_update', function(data) {
+                updateOnlineUsers(data.users);
+            });
+
+            socket.on('private_message', function(data) {
+                receivePrivateMessage(data);
+            });
+
+            socket.on('message_delivered', function(data) {
+                console.log('Повідомлення доставлено для ID:', data.to_id);
+            });
+
+            socket.on('user_offline', function(data) {
+                alert('Користувач зараз офлайн');
+            });
+
+            socket.on('search_results', function(data) {
+                console.log('Результати пошуку:', data.results);
+            });
+
+            // Налаштування пошуку
+            document.getElementById('user-search').addEventListener('input', function(e) {
+                const query = e.target.value.trim();
+                if (query.length >= 2 && socket) {
+                    socket.emit('search_users', { query: query });
+                }
+            });
+        }
+
+        // Оновлення списку онлайн користувачів
+        function updateOnlineUsers(users) {
+            const onlineUsersList = document.getElementById('online-users-list');
+            const onlineCount = document.getElementById('online-count');
+
+            // Фільтруємо поточного користувача
+            const otherUsers = users.filter(function(user) {
+                return user.id !== currentUser.id;
+            });
+
+            onlineCount.textContent = otherUsers.length;
+
+            if (otherUsers.length === 0) {
+                onlineUsersList.innerHTML = '<div class="no-messages">Немає користувачів онлайн</div>';
+                return;
+            }
+
+            onlineUsersList.innerHTML = '';
+
+            otherUsers.forEach(function(user) {
+                const userItem = document.createElement('div');
+                userItem.className = 'user-item';
+                userItem.dataset.userId = user.id;
+
+                if (selectedRecipient && selectedRecipient.id === user.id) {
+                    userItem.classList.add('selected');
+                }
+
+                userItem.innerHTML = '<div class="username">' + escapeHtml(user.username) + '</div>' +
+                                   '<div class="status">● онлайн</div>';
+
+                userItem.addEventListener('click', function() {
+                    selectUser(user);
+                });
+
+                onlineUsersList.appendChild(userItem);
+            });
+        }
+
+        // Вибір користувача для чату
+        function selectUser(user) {
+            selectedRecipient = user;
+
+            // Оновлення виділення
+            document.querySelectorAll('.user-item').forEach(function(item) {
+                if (parseInt(item.dataset.userId) === user.id) {
+                    item.classList.add('selected');

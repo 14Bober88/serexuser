@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Реєстрація - Чат Система</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+
+        .auth-form {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .auth-form h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .error-message {
+            background: #ffeaea;
+            color: #ff4444;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        .success-message {
+            background: #eaffea;
+            color: #44ff44;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        .auth-links {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .auth-links a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .auth-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-form">
+            <h2>Реєстрація</h2>
+
+            <div id="error-message" class="error-message"></div>
+            <div id="success-message" class="success-message"></div>
+
+            <div id="register-form">
+                <div class="input-group">
+                    <label for="register-username">Ім'я користувача</label>
+                    <input type="text" id="register-username" placeholder="Введіть логін (від 3 символів)">
+                </div>
+                <div class="input-group">
+                    <label for="register-password">Пароль</label>
+                    <input type="password" id="register-password" placeholder="Введіть пароль (від 6 символів)">
+                </div>
+                <div class="input-group">
+                    <label for="register-confirm">Підтвердіть пароль</label>
+                    <input type="password" id="register-confirm" placeholder="Повторіть пароль">
+                </div>
+                <button class="btn" onclick="register()">Зареєструватися</button>
+            </div>
+
+            <div class="auth-links">
+                <p>Вже маєте акаунт? <a href="/login">Увійти</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showError(message) {
+            const errorEl = document.getElementById('error-message');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+            const successEl = document.getElementById('success-message');
+            successEl.style.display = 'none';
+        }
+
+        function showSuccess(message) {
+            const successEl = document.getElementById('success-message');
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+            const errorEl = document.getElementById('error-message');
+            errorEl.style.display = 'none';
+        }
+
+        async function register() {
+            const username = document.getElementById('register-username').value.trim();
+            const password = document.getElementById('register-password').value.trim();
+            const confirmPassword = document.getElementById('register-confirm').value.trim();
+
+            if (!username || !password || !confirmPassword) {
+                showError('Будь ласка, заповніть всі поля');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showError('Паролі не співпадають');
+                return;
+            }
+
+            if (username.length < 3) {
+                showError('Логін має бути від 3 символів');
+                return;
+            }
+
+            if (password.length < 6) {
+                showError('Пароль має бути від 6 символів');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username: username, password: password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccess('Реєстрація успішна! Перенаправлення на сторінку входу...');
+                    setTimeout(function() {
+                        window.location.href = '/login';
+                    }, 2000);
+                } else {
+                    showError(data.error || 'Помилка реєстрації');
+                }
+            } catch (error) {
+                showError('Помилка з\'єднання');
+            }
+        }
+
+        document.getElementById('register-confirm').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                register();
+            }
+        });
+    </script>
+</body>
+</html>
