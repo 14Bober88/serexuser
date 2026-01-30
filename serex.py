@@ -1,3 +1,14 @@
+import sys
+import subprocess
+import pkg_resources
+
+required = {'flask', 'flask-socketio', 'eventlet'}
+installed = {pkg.key for pkg in pkg_resources.working_set}
+missing = required - installed
+
+if missing:
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', *missing])
+
 from flask import Flask, render_template, request, session, jsonify, g, redirect, url_for
 from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -6,7 +17,7 @@ import os
 from datetime import datetime
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your_secret_key_change_in_production_12345')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-123')
 app.config['DATABASE'] = 'database/users.db'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
@@ -102,7 +113,6 @@ def api_register():
         )
         db.commit()
 
-        # Автоматичний вхід після реєстрації
         cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
         user = cursor.fetchone()
         session['user_id'] = user['id']
